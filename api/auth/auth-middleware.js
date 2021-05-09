@@ -1,5 +1,6 @@
 const { JWT_SECRET } = require("../secrets"); // use this secret!
 const jwt = require("jsonwebtoken")
+const bcrypt = require("bcryptjs")
 const Users = require("../users/users-model")
 
 const restricted = async (req, res, next) => {
@@ -84,9 +85,20 @@ const checkUsernameExists = async (req, res, next) => {
       return res.status(401).json({
         message: "Invalid credentials",
       })
-    } else {
-      next()
     }
+
+    const passwordValid = await bcrypt.compare(req.body.password, user.password)
+
+    //If the password is invalid
+    if (!passwordValid) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      })
+    }
+
+    req.user = user
+    next()
+
   } catch (err) {
     next(err)
   }
@@ -112,7 +124,8 @@ const validateRoleName = (req, res, next) => {
       "message": "Role name can not be longer than 32 chars"
     }
   */
-  const roleName = req.body.role_name.trim()
+  const roleName = req.body.role_name ? req.body.role_name.trim() : ""
+
   if (roleName === 'admin') {
     return res.status(422).json({
       message: "Role name can not be admin",
@@ -121,10 +134,13 @@ const validateRoleName = (req, res, next) => {
     return res.status(422).json({
       message: "Role name can not be longer than 32 chars",
     })
-  } else if (!roleName) {
+  } else if (roleName === "") {
     req.role_name = 'student'
-    next()
+  } else {
+    req.role_name = roleName
   }
+
+  next()
 }
 
 module.exports = {
